@@ -1,5 +1,3 @@
-// VERTEX SHADER
-
 #version 330
 
 // Uniforms: Transformation Matrices
@@ -7,32 +5,33 @@ uniform mat4 matrixProjection;
 uniform mat4 matrixView;
 uniform mat4 matrixModelView;
 
-// Uniforms: Material Colours
+// Uniforms: Material Colors
 uniform vec3 materialAmbient;
 uniform vec3 materialDiffuse;
 
 in vec3 aVertex;
 in vec3 aNormal;
+in vec2 aTexCoord;
 
-out vec4 color;
-out vec4 position;
-out vec3 normal;
+out vec4 ambientColor;
+out vec3 fragNormal;
+out vec3 fragPosition;
+out vec2 fragTexCoord;
 
 void main(void) 
 {
-	// calculate position
-	position = matrixModelView * vec4(aVertex, 1.0);
-	gl_Position = matrixProjection * position;
+    // calculate position
+    vec4 position = matrixModelView * vec4(aVertex, 1.0);
+    gl_Position = matrixProjection * position;
 
-	// calculate normal
-	normal = normalize(mat3(matrixModelView) * aNormal);
+    // pass the normal and position to the fragment shader
+    fragNormal = normalize(mat3(matrixModelView) * aNormal);
+    fragPosition = vec3(position);
 
-	// calculate light - start with pitch black
-	color = vec4(0);
+    // pass the texture coordinates to the fragment shader
+    fragTexCoord = aTexCoord;
 
-	// temporary light and material calculation
-	// DELETE THE FOLLOWING THREE LINES BEFORE PROCEEDING!
-	vec3 L = normalize(mat3(matrixView) * vec3(-1.0, 0.5, 1.0));
-	float NdotL = max(dot(normal, L), 0.0);
-	color += vec4(materialDiffuse, 1) * NdotL + vec4(materialAmbient, 1);
+    // calculate ambient light
+    vec3 ambient = materialAmbient;
+    ambientColor = vec4(ambient, 1.0);
 }

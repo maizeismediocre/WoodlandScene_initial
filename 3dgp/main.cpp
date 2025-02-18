@@ -25,7 +25,13 @@ C3dglModel wolf, tree;
 
 // GLSL Objects (Shader Program)
 C3dglProgram program;
-
+//textures 
+C3dglBitmap grass;
+C3dglBitmap wolftex;
+GLuint idTexGrass;
+GLuint idTexWolf;
+// Skybox
+C3dglSkyBox skybox;
 // The View Matrix
 mat4 matrixView;
 
@@ -46,6 +52,9 @@ bool init()
 	glEnable(GL_ALPHA_TEST);	// Keep this code!
 	glAlphaFunc(GL_GREATER, 0.5);
 
+	// Enable blending for transparency
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	// Initialise Shaders
 	C3dglShader VertexShader;
 	C3dglShader FragmentShader;
@@ -67,17 +76,47 @@ bool init()
 	// glut additional setup
 	glutSetVertexAttribCoord3(program.getAttribLocation("aVertex"));
 	glutSetVertexAttribNormal(program.getAttribLocation("aNormal"));
-
+	
+	
 	// load your 3D models here!
 	// DON'T REMOVE ANYTHING - this code loads some objects and all tree textures
 	if (!terrain.load("models\\heightmap.png", 50)) return false;
 	if (!wolf.load("models\\wolf.dae")) return false;
+	
+	
+	
 	if (!tree.load("models\\tree\\tree.3ds")) return false;
 	tree.loadMaterials("models\\tree");
 	tree.getMaterial(0)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-trunk-norm.dds");
 	tree.getMaterial(1)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-leaf-norm.dds");
 	tree.getMaterial(2)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-branch-norm.dds");
 	
+	if (!skybox.load("models\\TropicalSunnyDay\\TropicalSunnyDayFront1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayLeft1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayBack1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayRight1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayUp1024.jpg",
+		"models\\TropicalSunnyDay\\TropicalSunnyDayDown1024.jpg")) return false;
+
+	// load the grass texture
+	grass.load("models\\grass.jpg", GL_RGBA);
+	if (!grass.getBits()) return false;
+	// load the wolf texture
+	wolftex.load("models\\wolf.jpg", GL_RGBA);
+	if (!wolftex.getBits()) return false;
+	// prepare the grass texture 
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idTexGrass);
+	glBindTexture(GL_TEXTURE_2D, idTexGrass);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, grass.getWidth(), grass.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, grass.getBits());
+	// prepare the wolf texture
+	glGenTextures(1, &idTexWolf);
+	glBindTexture(GL_TEXTURE_2D, idTexWolf);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wolftex.getWidth(), wolftex.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, wolftex.getBits());
+	// send the texture to the shader
+	program.sendUniform("texture0", 0);
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = lookAt(
 		vec3(-2.0, 1.0, 3.0),
@@ -105,14 +144,23 @@ void done()
 void renderScene(mat4& matrixView, float time, float deltaTime)
 {
 	mat4 m;
-
-	// setup materials
-	program.sendUniform("materialDiffuse", vec3(1.0f, 1.0f, 1.0f));	// white background for textures
-	program.sendUniform("materialAmbient", vec3(0.1f, 0.1f, 0.1f));
-	glActiveTexture(GL_TEXTURE0);
-
-	// render the terrain
 	m = matrixView;
+	// Disable depth test for skybox rendering
+	program.sendUniform("materialAmbient", vec3(1.0f, 1.0f, 1.0));
+	program.sendUniform("lightDirection", vec3(1.0f, 1.0f, 1.0f));
+	program.sendUniform("lightColor", vec3(0.0f, 0.0f, 0.0f));
+	glDisable(GL_DEPTH_TEST);
+	skybox.render(m);
+	// Re-enable depth test for other objects
+	glEnable(GL_DEPTH_TEST);
+	program.sendUniform("lightDirection", vec3(-1.0f, 1.0f, 1.0f));
+	program.sendUniform("lightColor", vec3(1.0f, 1.0f, 1.0f));
+	program.sendUniform("materialAmbient", vec3(0.1f, 0.1f, 0.1));
+	glActiveTexture(GL_TEXTURE0);
+	// bind the grass texture
+	glBindTexture(GL_TEXTURE_2D, idTexGrass);
+	// render the terrain
+	
 	terrain.render(m);
 
 
@@ -130,7 +178,10 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	// render the wolf
 	m = matrixView;
 	m = translate(m, wolfPos + amendY);
+	//bind the wolf texture
+	glBindTexture(GL_TEXTURE_2D, idTexWolf);
 	wolf.render(m);
+	
 
 	// render the trees
 	m = translate(matrixView, vec3(0, terrain.getInterpolatedHeight(0, -2), -2));
