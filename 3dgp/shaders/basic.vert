@@ -9,6 +9,13 @@ uniform mat4 matrixModelView;
 uniform vec3 materialAmbient;
 uniform vec3 materialDiffuse;
 
+// Light declarations
+struct AMBIENT {
+    vec3 color;
+};
+
+uniform AMBIENT lightAmbient;
+
 in vec3 aVertex;
 in vec3 aNormal;
 in vec2 aTexCoord;
@@ -17,6 +24,11 @@ out vec4 ambientColor;
 out vec3 fragNormal;
 out vec3 fragPosition;
 out vec2 fragTexCoord;
+
+vec4 AmbientLight(AMBIENT light) {
+    // Calculate Ambient Light
+    return vec4(materialAmbient * light.color, 1);
+}
 
 void main(void) 
 {
@@ -32,6 +44,5 @@ void main(void)
     fragTexCoord = aTexCoord;
 
     // calculate ambient light
-    vec3 ambient = materialAmbient;
-    ambientColor = vec4(ambient, 1.0);
+    ambientColor = AmbientLight(lightAmbient);
 }

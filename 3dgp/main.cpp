@@ -78,6 +78,11 @@ bool init()
 	glutSetVertexAttribNormal(program.getAttribLocation("aNormal"));
 	
 	
+
+	// Send directional light properties to the shader
+	program.sendUniform("lightDir.direction", vec3(-1.0, 1.0, 1.0));
+	program.sendUniform("lightDir.diffuse", vec3(1.0, 1.0, 1.0));
+	
 	// load your 3D models here!
 	// DON'T REMOVE ANYTHING - this code loads some objects and all tree textures
 	if (!terrain.load("models\\heightmap.png", 50)) return false;
@@ -146,16 +151,15 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	mat4 m;
 	m = matrixView;
 	// Disable depth test for skybox rendering
-	program.sendUniform("materialAmbient", vec3(1.0f, 1.0f, 1.0));
-	program.sendUniform("lightDirection", vec3(1.0f, 1.0f, 1.0f));
-	program.sendUniform("lightColor", vec3(0.0f, 0.0f, 0.0f));
+	program.sendUniform("lightAmbient.color", vec3(1.0, 1.0, 1.0));
+	program.sendUniform("materialAmbient", vec3(1.0, 1.0, 1.0));
+	program.sendUniform("materialDiffuse", vec3(0.0, 0.0, 0.0));
 	glDisable(GL_DEPTH_TEST);
 	skybox.render(m);
 	// Re-enable depth test for other objects
 	glEnable(GL_DEPTH_TEST);
-	program.sendUniform("lightDirection", vec3(-1.0f, 1.0f, 1.0f));
-	program.sendUniform("lightColor", vec3(1.0f, 1.0f, 1.0f));
-	program.sendUniform("materialAmbient", vec3(0.1f, 0.1f, 0.1));
+	program.sendUniform("lightAmbient.color", vec3(0.1, 0.1, 0.1));
+	program.sendUniform("materialDiffuse", vec3(1.0, 1.0, 1.0));
 	glActiveTexture(GL_TEXTURE0);
 	// bind the grass texture
 	glBindTexture(GL_TEXTURE_2D, idTexGrass);
