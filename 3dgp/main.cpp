@@ -21,15 +21,19 @@ vec3 wolfVel = vec3(0, 0, 0);
 
 // 3D Models
 C3dglTerrain terrain;
-C3dglModel wolf, tree;
+C3dglModel wolf, tree, stone;
 
 // GLSL Objects (Shader Program)
 C3dglProgram program;
 //textures 
 C3dglBitmap grass;
 C3dglBitmap wolftex;
+C3dglBitmap stonetex;
+C3dglBitmap rockNormalMap;
 GLuint idTexGrass;
 GLuint idTexWolf;
+GLuint idTexStone;
+GLuint idTexRockNormal;
 // Skybox
 C3dglSkyBox skybox;
 // The View Matrix
@@ -82,12 +86,15 @@ bool init()
 	// Send directional light properties to the shader
 	program.sendUniform("lightDir.direction", vec3(-1.0, 1.0, 1.0));
 	program.sendUniform("lightDir.diffuse", vec3(1.0, 1.0, 1.0));
-	
+
+	// Set fog parameters
+	program.sendUniform("fogColour", vec3(0.5, 0.5, 0.5)); // Example fog color
+	program.sendUniform("fogDensity", 0.1f); // Example fog density
 	// load your 3D models here!
 	// DON'T REMOVE ANYTHING - this code loads some objects and all tree textures
 	if (!terrain.load("models\\heightmap.png", 50)) return false;
 	if (!wolf.load("models\\wolf.dae")) return false;
-	
+	if (!stone.load("models\\stone.obj")) return false;
 	
 	
 	if (!tree.load("models\\tree\\tree.3ds")) return false;
@@ -95,7 +102,7 @@ bool init()
 	tree.getMaterial(0)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-trunk-norm.dds");
 	tree.getMaterial(1)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-leaf-norm.dds");
 	tree.getMaterial(2)->loadTexture(GL_TEXTURE1, "models\\tree", "pine-branch-norm.dds");
-	
+	// skybox load here
 	if (!skybox.load("models\\TropicalSunnyDay\\TropicalSunnyDayFront1024.jpg",
 		"models\\TropicalSunnyDay\\TropicalSunnyDayLeft1024.jpg",
 		"models\\TropicalSunnyDay\\TropicalSunnyDayBack1024.jpg",
@@ -109,6 +116,13 @@ bool init()
 	// load the wolf texture
 	wolftex.load("models\\wolf.jpg", GL_RGBA);
 	if (!wolftex.getBits()) return false;
+	// load the stone texture
+	stonetex.load("models\\stone.png", GL_RGBA);
+	if (!stonetex.getBits()) return false;
+	//load the rock normal map
+	if (!rockNormalMap.load("models\\stoneNormal.png", GL_RGBA)) return false;
+	if (!rockNormalMap.getBits()) return false;
+
 	// prepare the grass texture 
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexGrass);
@@ -120,8 +134,24 @@ bool init()
 	glBindTexture(GL_TEXTURE_2D, idTexWolf);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, wolftex.getWidth(), wolftex.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, wolftex.getBits());
+	
+	//prepare the stone texture
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &idTexStone);
+	glBindTexture(GL_TEXTURE_2D, idTexStone);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, stonetex.getWidth(), stonetex.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, stonetex.getBits());
 	// send the texture to the shader
 	program.sendUniform("texture0", 0);
+	
+	glActiveTexture(GL_TEXTURE1);
+	glGenTextures(1, &idTexRockNormal);
+	glBindTexture(GL_TEXTURE_2D, idTexRockNormal);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, rockNormalMap.getWidth(), rockNormalMap.getHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, rockNormalMap.getBits());
+	program.sendUniform("textureNormal", 1);
+	// CREATE NULL TEXTURE FOR THE NORMAL MAP
+	
 	// Initialise the View Matrix (initial position of the camera)
 	matrixView = lookAt(
 		vec3(-2.0, 1.0, 3.0),
@@ -176,6 +206,7 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	// Just provide the velocity value in wolfVel and the following line will find the new position:
 	wolfPos = wolfPos + wolfVel;
 
+
 	// This vector automatically amends the Y-coordinate of the wolf according to the terrain elevation
 	vec3 amendY = vec3(vec3(0, terrain.getInterpolatedHeight(wolfPos.x, wolfPos.z), 0));
 
@@ -199,6 +230,18 @@ void renderScene(mat4& matrixView, float time, float deltaTime)
 	m = scale(m, vec3(0.01f, 0.01f, 0.01f));
 	m = rotate(m, radians(70.f), vec3(0.f, 1.f, 0.f));
 	tree.render(m);
+	// render the stone in between the trees 
+	glActiveTexture(GL_TEXTURE0);
+	m = translate(matrixView, vec3(-2, terrain.getInterpolatedHeight(0, 0), -2));
+	m = scale(m, vec3(0.01f, 0.01f, 0.01f));
+	m = rotate(m, radians(70.f), vec3(0.f, 1.f, 0.f));
+	glBindTexture(GL_TEXTURE_2D, idTexStone);
+	// bind the normal map
+	glActiveTexture(GL_TEXTURE1); 
+	glBindTexture(GL_TEXTURE_2D, idTexRockNormal);
+
+	stone.render(m);
+
 }
 
 void onRender()
